@@ -1,2 +1,5 @@
 streamlit
 biopython
+matplotlib
+ipywidgets
+widgetsnbextension
