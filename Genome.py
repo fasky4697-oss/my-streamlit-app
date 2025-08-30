@@ -369,41 +369,44 @@ if st.session_state.genome_seq:
             msg.append("⚠️ ไม่พบ stop codon ในช่วงที่เลือก — มีตำแหน่งใกล้เคียงให้เลือกในเมนู")
 
 
-    if msg:
-        st.warning("\n".join(msg))
-
-
     st.session_state.start_codon_options = s_opts
     st.session_state.stop_codon_options = t_opts
-
+    
+    # -------------------------------------
+    # ปุ่มและส่วนการทำงานที่แก้ไข
+    # -------------------------------------
     col3, col4, col5 = st.columns(3)
-
     with col3:
+        # ดึงค่าที่แท้จริง (pos, frame)
         start_selection = st.selectbox(
             "เลือก Start:",
             options=st.session_state.start_codon_options,
-            format_func=lambda x: x[0], # Display the text part of the tuple
+            format_func=lambda x: x[0],
             key='start_dropdown'
         )
+        s_pick = start_selection[1] if start_selection[1] is not None else None
+
     with col4:
+        # ดึงค่าที่แท้จริง (pos, frame, codon)
         stop_selection = st.selectbox(
             "เลือก Stop:",
             options=st.session_state.stop_codon_options,
-            format_func=lambda x: x[0], # Display the text part of the tuple
+            format_func=lambda x: x[0],
             key='stop_dropdown'
         )
-    with col5:
-        # Add a small space or use markdown for alignment
-        st.markdown("<br>", unsafe_allow_html=True) # Add some vertical space
-        use_picks_button = st.button("แปลจาก Start/Stop ที่เลือก", key='use_picks_button')
+        t_pick = stop_selection[1] if stop_selection[1] is not None else None
 
+    with col5:
+        st.markdown("<br>", unsafe_allow_html=True)
+        use_picks_button = st.button("แปลจาก Start/Stop ที่เลือก", key='use_picks_button')
 
     col6, col7 = st.columns(2)
     with col6:
         translate_selected_button = st.button("แปลจากช่วงที่เลือก", key='translate_selected_button')
+    
     with col7:
         if st.session_state.last_protein_seq:
-            fasta_content = save_protein_to_file(st.session_state.last_protein_header + ".faa", st.session_state.last_protein_header, st.session_state.last_protein_seq)
+            fasta_content = to_fasta(st.session_state.last_protein_header, st.session_state.last_protein_seq)
             st.download_button(
                 label="บันทึกโปรตีน (FASTA)",
                 data=fasta_content,
@@ -413,12 +416,13 @@ if st.session_state.genome_seq:
             )
         else:
             st.button("บันทึกโปรตีน (FASTA)", key='save_protein_button_disabled', disabled=True)
-
-
+    
+    # -------------------------------------
+    # Logic for button actions
+    # -------------------------------------
     if translate_selected_button:
         s0 = st.session_state.current_range_start - 1
         e0 = st.session_state.current_range_end
-        # Adjust to be divisible by 3
         adj_len = ((e0 - s0) // 3) * 3
         e0_adj = s0 + adj_len
         if adj_len <= 0:
@@ -431,9 +435,6 @@ if st.session_state.genome_seq:
             st.markdown(output_html, unsafe_allow_html=True)
 
     if use_picks_button:
-        s_pick = start_selection # (pos, frame) or None
-        t_pick = stop_selection  # (pos, frame, codon) or None
-
         if not s_pick and not t_pick:
             st.warning("โปรดเลือกอย่างน้อย Start หรือ Stop")
         else:
@@ -459,10 +460,9 @@ if st.session_state.genome_seq:
                         t_pos = i
                         break
                 if t_pos is None:
-                    # No stop found - use end of range slider, adjusted for frame
                     s0 = s_pos
                     e0 = st.session_state.current_range_end
-                    e0 = s0 + ((e0 - s0)//3)*3 # Adjust length
+                    e0 = s0 + ((e0 - s0)//3)*3
                     st.warning("ไม่พบ Stop codon หลัง Start ที่เลือก ใช้ขอบช่วงที่เลือกแทน")
                 else:
                     s0, e0 = s_pos, t_pos + 3
@@ -477,13 +477,12 @@ if st.session_state.genome_seq:
                         s_pos = i
                         break
                 if s_pos is None:
-                    # No start found - use start of range, adjusted for frame
                     s0 = st.session_state.current_range_start - 1
                     while (s0 % 3) != t_frame and s0 < t_pos:
                         s0 += 1
                     if s0 >= t_pos:
                         st.error("ไม่พบ Start codon ก่อน Stop ที่เลือกใน Frame เดียวกัน")
-                        s0 = None # Indicate failure
+                        s0 = None
                     else:
                         st.warning("ไม่พบ Start codon ก่อน Stop ที่เลือก ใช้ขอบช่วงที่เลือกแทน")
                 else:
