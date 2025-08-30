@@ -270,7 +270,7 @@ with col_select:
     selected_bacteria = st.selectbox(
         'เลือกชื่อแบคทีเรียจากรายการ:',
         options=["— เลือก —"] + sample_bacteria,
-        index=0, # Set default index to "— เลือก —"
+        # Removed index=0
         key='bacteria_select'
     )
 
