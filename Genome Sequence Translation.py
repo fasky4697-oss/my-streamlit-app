@@ -259,16 +259,29 @@ if 'stop_codon_options' not in st.session_state:
 
 
 # Input: Bacteria name
-species_name = st.selectbox(
-    'เลือกชื่อแบคทีเรีย:',
-    options=[
-        "Escherichia coli", "Staphylococcus aureus", "Salmonella enterica",
-        "Bacillus subtilis", "Pseudomonas aeruginosa", "Mycobacterium tuberculosis",
-        "Vibrio cholerae", "Klebsiella pneumoniae", "Acinetobacter baumannii"
-    ],
-    index=0,
-    key='species_name_input'
-)
+col_input, col_dropdown = st.columns([2, 1])
+with col_input:
+    custom_species_name = st.text_input(
+        'กรอกชื่อแบคทีเรียเอง:',
+        value="Escherichia coli",
+        key='custom_species_name_input'
+    )
+with col_dropdown:
+    st.markdown("<br>", unsafe_allow_html=True)  # Add some vertical space for alignment
+    species_name_from_dropdown = st.selectbox(
+        'หรือเลือกจากรายการ:',
+        options=[
+            "",
+            "Escherichia coli", "Staphylococcus aureus", "Salmonella enterica",
+            "Bacillus subtilis", "Pseudomonas aeruginosa", "Mycobacterium tuberculosis",
+            "Vibrio cholerae", "Klebsiella pneumoniae", "Acinetobacter baumannii"
+        ],
+        index=0,
+        key='species_name_dropdown'
+    )
+
+# Use the value from the text input unless a dropdown value is selected
+species_name = species_name_from_dropdown if species_name_from_dropdown else custom_species_name
 
 col1, col2 = st.columns(2)
 
