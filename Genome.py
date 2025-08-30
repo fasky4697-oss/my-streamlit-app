@@ -3,7 +3,6 @@
 from Bio import Entrez, SeqIO
 import streamlit as st
 import re
-import io # Import io for file handling
 
 # ------------------------------
 # ตั้งค่า Entrez
@@ -29,7 +28,7 @@ codon_table = {
     "TCA":"S","TCC":"S","TCG":"S","TCT":"S",
     "TTC":"F","TTT":"F","TTA":"L","TTG":"L",
     "TAC":"Y","TAT":"Y","TAA":"*","TAG":"*",
-    "TGC":"C","TGT":"C","TGA":"*","TGG":"W" # Corrected the syntax error here
+    "TGC":"C","TGT":"C","TGA":"*","TGG":"W"
 }
 start_codons = {"ATG"}
 stop_codons = {"TAA", "TAG", "TGA"}
@@ -68,7 +67,7 @@ def find_codons_positions(seq, codon_set, start=0):
     for i in range(0, n - 2):
         codon = seq[i:i+3]
         if codon in codon_set:
-            pos = start + i           # absolute (0-based)
+            pos = start + i      # absolute (0-based)
             frame = pos % 3
             positions.append((pos, frame, codon))
     return positions
@@ -175,19 +174,17 @@ def to_fasta(header, seq, width=70):
     return "\n".join(lines)
 
 # Keep file saving functions separate to be called by Streamlit UI
-def save_protein_to_file(header, protein_seq):
+def save_protein_to_file(filename, header, protein_seq):
     if header and protein_seq:
         fasta_content = to_fasta(header, protein_seq)
-        # Use io.BytesIO to create an in-memory binary stream
-        return io.BytesIO(fasta_content.encode('utf-8'))
+        return fasta_content
     return None
 
-def save_genome_to_file(header, genome_seq):
-     if header and genome_seq:
+def save_genome_to_file(filename, header, genome_seq):
+    if header and genome_seq:
         fasta_content = to_fasta(header, genome_seq)
-        # Use io.BytesIO to create an in-memory binary stream
-        return io.BytesIO(fasta_content.encode('utf-8'))
-     return None
+        return fasta_content
+    return None
 
 # Adapt analyze_current_range
 def analyze_current_range(gseq, start_pos, end_pos):
@@ -238,7 +235,7 @@ def annotate_and_show_streamlit(s0, e0, aa, gb_record, label_prefix="ช่ว�
 # Streamlit UI
 # ------------------------------
 
-st.title("Genome Sequence Translation") # Changed title
+st.title("Genome Sequence Translation")
 
 # Initialize session state
 if 'genome_seq' not in st.session_state:
@@ -261,35 +258,30 @@ if 'stop_codon_options' not in st.session_state:
     st.session_state.stop_codon_options = [("— ไม่เลือก —", None)]
 
 
-# Input: Bacteria name - Use both dropdown and text input
-sample_bacteria = ["Escherichia coli", "Bacillus subtilis", "Pseudomonas aeruginosa", "Staphylococcus aureus", "Mycobacterium tuberculosis"]
-
-col_select, col_input = st.columns([0.6, 0.4])
-
-with col_select:
-    selected_bacteria = st.selectbox(
-        'เลือกชื่อแบคทีเรียจากรายการ:',
-        options=["— เลือก —"] + sample_bacteria,
-        # Removed index=0
-        key='bacteria_select'
-    )
-
+# Input: Bacteria name
+col_input, col_dropdown = st.columns([2, 1])
 with col_input:
-     # Add a small space for alignment with selectbox
-    st.markdown("<br>", unsafe_allow_html=True)
-    custom_bacteria = st.text_input(
-        'หรือกรอกชื่อเอง:',
-        key='custom_bacteria_input'
+    custom_species_name = st.text_input(
+        'กรอกชื่อแบคทีเรียเอง:',
+        value="Escherichia coli",
+        key='custom_species_name_input'
+    )
+with col_dropdown:
+    st.markdown("<br>", unsafe_allow_html=True)  # Add some vertical space for alignment
+    species_name_from_dropdown = st.selectbox(
+        'หรือเลือกจากรายการ:',
+        options=[
+            "",
+            "Escherichia coli", "Staphylococcus aureus", "Salmonella enterica",
+            "Bacillus subtilis", "Pseudomonas aeruginosa", "Mycobacterium tuberculosis",
+            "Vibrio cholerae", "Klebsiella pneumoniae", "Acinetobacter baumannii"
+        ],
+        index=0,
+        key='species_name_dropdown'
     )
 
-# Determine which name to use
-if custom_bacteria:
-    species_name = custom_bacteria
-elif selected_bacteria and selected_bacteria != "— เลือก —":
-    species_name = selected_bacteria
-else:
-    species_name = "" # No selection yet
-
+# Use the value from the text input unless a dropdown value is selected
+species_name = species_name_from_dropdown if species_name_from_dropdown else custom_species_name
 
 col1, col2 = st.columns(2)
 
@@ -299,7 +291,6 @@ with col2:
     reset_button = st.button("ล้างผล", key='reset_button')
 
 if reset_button:
-    # Correctly reset session state variables
     st.session_state.genome_seq = None
     st.session_state.genbank_record = None
     st.session_state.genome_id = None
@@ -309,9 +300,6 @@ if reset_button:
     st.session_state.current_range_end = 3000
     st.session_state.start_codon_options = [("— ไม่เลือก —", None)]
     st.session_state.stop_codon_options = [("— ไม่เลือก —", None)]
-    # Reset input widgets by clearing their keys
-    st.session_state.bacteria_select = "— เลือก —" # Reset dropdown to default option
-    st.session_state.custom_bacteria_input = "" # Clear text input
     st.rerun() # Rerun to clear the UI
 
 if fetch_button and species_name:
@@ -322,212 +310,4 @@ if fetch_button and species_name:
             st.session_state.genome_seq = genome_seq
             st.session_state.genbank_record = genbank_record
             st.session_state.current_range_start = 1
-            st.session_state.current_range_end = min(3000, len(genome_seq))
-            st.success(f"✅ พบจีโนมความยาว {len(genome_seq):,} เบส | NCBI ID: {genome_id}")
-            preview = genome_seq[:120]
-            st.markdown("<b>ตัวอย่าง 120 nt แรก:</b>", unsafe_allow_html=True)
-            st.markdown(f"<pre style='font-size:13px'>{highlight_codons(preview)}</pre>", unsafe_allow_html=True)
-
-        else:
-            st.error("❌ ไม่พบจีโนมสำหรับคำค้นนี้")
-            st.session_state.genome_seq = None
-            st.session_state.genbank_record = None
-            st.session_state.genome_id = None
-
-# Range slider and analysis
-if st.session_state.genome_seq:
-    genome_length = len(st.session_state.genome_seq)
-    st.session_state.current_range_start, st.session_state.current_range_end = st.slider(
-        'ช่วงเบส:',
-        min_value=1,
-        max_value=genome_length,
-        value=(st.session_state.current_range_start, st.session_state.current_range_end),
-        step=1,
-        key='range_slider'
-    )
-
-    selected_seq, starts_in_range, stops_in_range = analyze_current_range(
-        st.session_state.genome_seq,
-        st.session_state.current_range_start,
-        st.session_state.current_range_end
-    )
-
-    st.markdown(f"<b>ช่วงที่เลือก:</b> {st.session_state.current_range_start:,}–{st.session_state.current_range_end:,} (ยาว {len(selected_seq):,} nt)", unsafe_allow_html=True)
-    st.markdown(f"<pre style='font-size:13px'>{highlight_codons(selected_seq)}</pre>", unsafe_allow_html=True)
-
-
-    # Update start/stop dropdown options
-    s_opts = [("— ไม่เลือก —", None)] + [
-        (f"ATG @ {p+1} (frame {f})", (p, f)) for (p, f, c) in starts_in_range[:50]
-    ]
-    t_opts = [("— ไม่เลือก —", None)] + [
-        (f"{c} @ {p+1} (frame {f})", (p, f, c)) for (p, f, c) in stops_in_range[:50]
-    ]
-
-    # Add nearby codons if the range is sparse
-    msg = []
-    if not starts_in_range:
-        all_starts = find_codons_positions(st.session_state.genome_seq, start_codons, start=0)
-        near_s = nearest_positions(st.session_state.current_range_start - 1, all_starts, 10)
-        s_opts.extend([(f"แนะนำ: ATG @ {p+1} (frame {f})", (p, f)) for (p, f, c) in near_s])
-        if near_s: # Only add message if suggestions were added
-             msg.append("⚠️ ไม่พบ start codon ในช่วงที่เลือก — มีตำแหน่งใกล้เคียงให้เลือกในเมนู")
-
-
-    if not stops_in_range:
-        all_stops  = find_codons_positions(st.session_state.genome_seq, stop_codons, start=0)
-        near_t = nearest_positions(st.session_state.current_range_end, all_stops, 10)
-        t_opts.extend([(f"แนะนำ: {c} @ {p+1} (frame {f})", (p, f, c)) for (p, f, c) in near_t])
-        if near_t: # Only add message if suggestions were added
-             msg.append("⚠️ ไม่พบ stop codon ในช่วงที่เลือก — มีตำแหน่งใกล้เคียงให้เลือกในเมนู")
-
-
-    if msg:
-        st.warning("\n".join(msg))
-
-
-    st.session_state.start_codon_options = s_opts
-    st.session_state.stop_codon_options = t_opts
-
-    col3, col4, col5 = st.columns(3)
-
-    with col3:
-        start_selection = st.selectbox(
-            "เลือก Start:",
-            options=st.session_state.start_codon_options,
-            format_func=lambda x: x[0], # Display the text part of the tuple
-            key='start_dropdown'
-        )
-    with col4:
-        stop_selection = st.selectbox(
-            "เลือก Stop:",
-            options=st.session_state.stop_codon_options,
-            format_func=lambda x: x[0], # Display the text part of the tuple
-            key='stop_dropdown'
-        )
-    with col5:
-        # Add a small space or use markdown for alignment
-        st.markdown("<br>", unsafe_allow_html=True) # Add some vertical space
-        use_picks_button = st.button("แปลจาก Start/Stop ที่เลือก", key='use_picks_button')
-
-
-    col6, col7 = st.columns(2)
-    with col6:
-         translate_selected_button = st.button("แปลจากช่วงที่เลือก", key='translate_selected_button')
-    with col7:
-        # Add a small space or use markdown for alignment
-        st.markdown("<br>", unsafe_allow_html=True) # Add some vertical space
-        if st.session_state.last_protein_seq:
-            # Use io.BytesIO to create an in-memory binary stream for download
-            fasta_content_io = io.BytesIO(to_fasta(st.session_state.last_protein_header, st.session_state.last_protein_seq).encode('utf-8'))
-            st.download_button(
-                label="บันทึกโปรตีน (FASTA)",
-                data=fasta_content_io, # Pass the BytesIO object
-                file_name=f"{st.session_state.last_protein_header}.faa",
-                mime="text/plain",
-                key='save_protein_button'
-            )
-        else:
-             st.button("บันทึกโปรตีน (FASTA)", key='save_protein_button_disabled', disabled=True)
-
-
-    if translate_selected_button:
-        s0 = st.session_state.current_range_start - 1
-        e0 = st.session_state.current_range_end
-        # Adjust to be divisible by 3
-        adj_len = ((e0 - s0) // 3) * 3
-        e0_adj = s0 + adj_len
-        if adj_len <= 0:
-             st.warning("ช่วงที่เลือกสั้นเกินไปสำหรับการแปลรหัส")
-        else:
-            aa = translate_dna(st.session_state.genome_seq[s0:e0_adj])
-            output_html, header, protein_seq = annotate_and_show_streamlit(s0, e0_adj, aa, st.session_state.genbank_record, label_prefix="แปลตามช่วงที่เลือก")
-            st.session_state.last_protein_header = header
-            st.session_state.last_protein_seq = protein_seq
-            st.markdown(output_html, unsafe_allow_html=True)
-
-    if use_picks_button:
-        s_pick = start_selection # (pos, frame) or None
-        t_pick = stop_selection   # (pos, frame, codon) or None
-
-        if not s_pick and not t_pick:
-            st.warning("โปรดเลือกอย่างน้อย Start หรือ Stop")
-        else:
-            s0, e0 = None, None
-            label = "ช่วงที่เลือก"
-
-            # Both selected
-            if s_pick and t_pick:
-                s_pos, s_frame = s_pick
-                t_pos, t_frame, t_cod = t_pick
-                if s_frame != t_frame or t_pos <= s_pos:
-                    st.error("Start/Stop ไม่สอดคล้องกัน (frame/ลำดับ)")
-                else:
-                    s0, e0 = s_pos, t_pos + 3
-                    label = "ช่วง Start–Stop ที่เลือก"
-
-            # Only Start selected
-            elif s_pick and not t_pick:
-                s_pos, s_frame = s_pick
-                t_pos = None
-                for i in range(s_pos, len(st.session_state.genome_seq)-2, 3):
-                    if (i % 3) == s_frame and st.session_state.genome_seq[i:i+3] in stop_codons:
-                        t_pos = i
-                        break
-                if t_pos is None:
-                    # No stop found - use end of range slider, adjusted for frame
-                    s0 = s_pos
-                    e0 = st.session_state.current_range_end
-                    e0 = s0 + ((e0 - s0)//3)*3 # Adjust length
-                    st.warning("ไม่พบ Stop codon หลัง Start ที่เลือก ใช้ขอบช่วงที่เลือกแทน")
-                else:
-                    s0, e0 = s_pos, t_pos + 3
-                label = "ช่วงจาก Start → Stop/ขอบช่วง"
-
-            # Only Stop selected
-            elif (not s_pick) and t_pick:
-                t_pos, t_frame, t_cod = t_pick
-                s_pos = None
-                for i in range(t_pos, -1, -3):
-                    if (i % 3) == t_frame and st.session_state.genome_seq[i:i+3] in start_codons:
-                        s_pos = i
-                        break
-                if s_pos is None:
-                    # No start found - use start of range, adjusted for frame
-                    s0 = st.session_state.current_range_start - 1
-                    while (s0 % 3) != t_frame and s0 < t_pos:
-                        s0 += 1
-                    if s0 >= t_pos:
-                         st.error("ไม่พบ Start codon ก่อน Stop ที่เลือกใน Frame เดียวกัน")
-                         s0 = None # Indicate failure
-                    else:
-                        st.warning("ไม่พบ Start codon ก่อน Stop ที่เลือก ใช้ขอบช่วงที่เลือกแทน")
-                else:
-                    s0 = s_pos
-                e0 = t_pos + 3
-                label = "ช่วงจากขอบช่วง/Start → Stop"
-
-            if s0 is not None and e0 is not None and e0 > s0:
-                aa = translate_dna(st.session_state.genome_seq[s0:e0])
-                if len(aa) == 0:
-                     st.warning("ช่วงที่เลือกสั้นเกินไปสำหรับการแปลรหัส")
-                else:
-                    output_html, header, protein_seq = annotate_and_show_streamlit(s0, e0, aa, st.session_state.genbank_record, label_prefix=label)
-                    st.session_state.last_protein_header = header
-                    st.session_state.last_protein_seq = protein_seq
-                    st.markdown(output_html, unsafe_allow_html=True)
-            elif s0 is not None and e0 is not None and e0 <= s0:
-                 st.error("ตำแหน่งสิ้นสุดต้องมากกว่าตำแหน่งเริ่มต้น")
-
-    if st.session_state.genome_seq and st.session_state.genome_id:
-         # Use io.BytesIO to create an in-memory binary stream for download
-         fasta_genome_content_io = io.BytesIO(to_fasta(st.session_state.genome_id, st.session_state.genome_seq).encode('utf-8'))
-         st.download_button(
-            label="บันทึกจีโนม (FASTA)",
-            data=fasta_genome_content_io, # Pass the BytesIO object
-            file_name=f"{st.session_state.genome_id}.fna",
-            mime="text/plain",
-            key='save_genome_button'
-        )
-    else:
-         st.button("บันทอม (FASTA)", key='save_genome_button_disabled', disabled=True) # Corrected label typo
+            st.session_
