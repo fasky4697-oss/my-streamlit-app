@@ -235,7 +235,7 @@ def annotate_and_show_streamlit(s0, e0, aa, gb_record, label_prefix="ช่ว�
 # Streamlit UI
 # ------------------------------
 
-st.title("โปรแกรมวิเคราะห์จีโนมแบคทีเรียและแปลรหัสโปรตีน")
+st.title("Genome Sequence Translation")
 
 # Initialize session state
 if 'genome_seq' not in st.session_state:
@@ -259,18 +259,16 @@ if 'stop_codon_options' not in st.session_state:
 
 
 # Input: Bacteria name
-species_name = st.text_input(
-    'กรอกหรือเลือกชื่อแบคทีเรีย:',
-    value="Escherichia coli",
+species_name = st.selectbox(
+    'เลือกชื่อแบคทีเรีย:',
+    options=[
+        "Escherichia coli", "Staphylococcus aureus", "Salmonella enterica",
+        "Bacillus subtilis", "Pseudomonas aeruginosa", "Mycobacterium tuberculosis",
+        "Vibrio cholerae", "Klebsiella pneumoniae", "Acinetobacter baumannii"
+    ],
+    index=0,
     key='species_name_input'
 )
-species_name_options = [
-    "Escherichia coli", "Staphylococcus aureus", "Salmonella enterica",
-    "Bacillus subtilis", "Pseudomonas aeruginosa", "Mycobacterium tuberculosis",
-    "Vibrio cholerae", "Klebsiella pneumoniae", "Acinetobacter baumannii"
-]
-st.write("หรือเลือกจากรายชื่อยอดนิยม:", ", ".join(species_name_options))
-
 
 col1, col2 = st.columns(2)
 
