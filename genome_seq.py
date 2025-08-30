@@ -7,14 +7,14 @@ Original file is located at
     https://colab.research.google.com/drive/1tRJNoyySbsEEN4s5iofvIfQMprTMGWOs
 """
 
-!pip install streamlit biopython
+pip install streamlit biopython
 
 # @title
 # Ensure Biopython is installed
-!pip install biopython
+pip install biopython
 !pip -q install biopython matplotlib ipywidgets adjustText
-!apt-get install muscle
-!pip install --upgrade biopython
+apt-get install muscle
+pip install --upgrade biopython
 
 # app.py - This file will contain the Streamlit application code
 
