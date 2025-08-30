@@ -1,7 +1,6 @@
 import streamlit as st
 from Bio import Entrez, SeqIO
 import re
-import os
 
 # ------------------------------
 # ตั้งค่า Entrez
@@ -40,8 +39,8 @@ state = {
     "genbank_record": None,
     "genome_id": None,
     "current_frame": None,
-    "last_protein_header": None,  # เพิ่มสำหรับเก็บ header โปรตีนล่าสุด
-    "last_protein_seq": None,  # เพิ่มสำหรับเก็บลำดับโปรตีนล่าสุด
+    "last_protein_header": None, # เพิ่มสำหรับเก็บ header โปรตีนล่าสุด
+    "last_protein_seq": None,    # เพิ่มสำหรับเก็บลำดับโปรตีนล่าสุด
 }
 
 # ------------------------------
@@ -78,13 +77,10 @@ def find_codons_positions(seq, codon_set, start=0):
     for i in range(0, n - 2):
         codon = seq[i:i+3]
         if codon in codon_set:
-            pos = start + i  # absolute (0-based)
+            pos = start + i           # absolute (0-based)
             frame = pos % 3
             positions.append((pos, frame, codon))
     return positions
-
-def nearest_positions(target, positions, limit=10):
-    return sorted(positions, key=lambda x: abs(x[0] - target))[:limit]
 
 def fetch_genome_and_gb(bacteria_name):
     term = f"{bacteria_name}[orgn] AND complete genome[title]"
@@ -135,55 +131,55 @@ def get_overlapping_cds_annotations(gb_record, start, end):
             })
     return results
 
-def heuristic_function_prediction(aa):
-    """ทายฟังก์ชันอย่างหยาบจาก motif/คุณสมบัติ"""
-    hints = []
-    if not aa:
-        return ["(ไม่มีกรดอะมิโน)"]
-
-    # P-loop NTPase (Walker A): GxxxxGKS/T
-    if re.search(r"G....GK[ST]", aa):
-        hints.append("อาจเป็น P-loop NTPase (Walker A) เช่น ATPase/GTPase")
-
-    # Metalloprotease HExH
-    if re.search(r"H.EH", aa):
-        hints.append("อาจเป็น metalloprotease (HExH motif)")
-
-    # Serine hydrolase (GxSxG)
-    if re.search(r"G.S.G", aa):
-        hints.append("อาจเป็นเซรีนไฮดรอลาเซ (GxSxG motif)")
-
-    # Transmembrane helix (ช่วง hydrophobic ยาว)
-    hydrophobic = set("AILMFWVY")
-    run = 0; max_run = 0
-    for ch in aa:
-        if ch in hydrophobic:
-            run += 1; max_run = max(max_run, run)
-        else:
-            run = 0
-    if max_run >= 18:
-        hints.append("อาจเป็นโปรตีนเยื่อหุ้ม (มี transmembrane helix)")
-
-    # Signal peptide (หยาบๆ)
-    if len(aa) >= 25 and sum(1 for c in aa[:25] if c in hydrophobic) >= 10:
-        hints.append("อาจมีสัญญาณหลั่ง/นำส่ง (signal peptide)")
-
-    if len(aa) < 50:
-        hints.append("สั้นมาก (อาจเป็น ORF สั้น/เปปไทด์เล็ก)")
-
-    if not hints:
-        hints.append("ฟังก์ชันไม่ชัด ควรทำ BLASTp/HMMER เพื่อเทียบฐานข้อมูล")
-    return hints
-
-def to_fasta(header, seq, width=70):
-    lines = [f">{header}"]
-    for i in range(0, len(seq), width):
-        lines.append(seq[i:i+width])
-    return "\n".join(lines)
-
 # ------------------------------
 # Streamlit UI Components
 # ------------------------------
-st.title('Genome & Protein Translation Tool')
+st.title("Genome Sequence Translation")
 
-species_name = st.text_input('กรอกชื่อแบคทีเรีย (เช่น Escherichia coli)', value="
+species_name = st.text_input("Enter the bacteria species name (e.g., Escherichia coli):", "Escherichia coli")
+
+if st.button("Fetch Genome"):
+    st.text("Fetching genome...")
+    genome_id, genome_seq, genbank_record = fetch_genome_and_gb(species_name)
+    
+    if not genome_seq:
+        st.error("No genome found for this species.")
+    else:
+        state["genome_id"] = genome_id
+        state["genome_seq"] = genome_seq
+        state["genbank_record"] = genbank_record
+        st.success(f"Genome fetched successfully! Genome length: {len(genome_seq)} bases.")
+        
+        # Display first 120 bases of genome with codon highlights
+        st.markdown(f"**Sample Sequence (First 120 bases):**")
+        st.text(highlight_codons(genome_seq[:120]))
+        
+        start_pos, end_pos = st.slider("Select a range of bases to analyze", min_value=1, max_value=len(genome_seq), value=(1, 3000))
+        
+        selected_range = genome_seq[start_pos-1:end_pos]
+        st.text(f"Selected Range: {selected_range[:120]}... (Length: {end_pos - start_pos + 1} bases)")
+        
+        # Find start and stop codons in the selected range
+        starts = find_codons_positions(selected_range, start_codons, start=start_pos-1)
+        stops = find_codons_positions(selected_range, stop_codons, start=start_pos-1)
+        
+        st.markdown(f"**Start Codons:** {starts}")
+        st.markdown(f"**Stop Codons:** {stops}")
+        
+        # Translate the selected range to protein sequence
+        translated_seq = translate_dna(selected_range)
+        st.markdown(f"**Translated Protein Sequence:** {translated_seq[:400]}... (Length: {len(translated_seq)} aa)")
+        
+        # Annotate protein if available
+        annotations = get_overlapping_cds_annotations(genbank_record, start_pos-1, end_pos)
+        if annotations:
+            st.markdown("**Annotations from GenBank (Overlapping CDS):**")
+            for ann in annotations[:3]:
+                st.markdown(f"- Gene: {ann['gene']} | Product: {ann['product']} | Protein ID: {ann['protein_id']} | Position: {ann['start']} - {ann['end']}")
+        else:
+            st.markdown("No overlapping annotations found.")
+        
+        st.download_button("Download Protein Sequence", data=translated_seq, file_name="protein_sequence.faa", mime="text/fasta")
+
+        st.download_button("Download Genome Sequence", data=genome_seq, file_name=f"{genome_id}.fna", mime="text/fasta")
+
