@@ -1,6 +1,3 @@
-# Save the streamlit code to a file
-with open('app.py', 'w') as f:
-    f.write("""
 # app.py - This file will contain the Streamlit application code
 
 from Bio import Entrez, SeqIO
@@ -499,7 +496,7 @@ if st.session_state.genome_seq:
          # Use save_genome_to_file to get the BytesIO object
          fasta_genome_content_io = save_genome_to_file(st.session_state.genome_id, st.session_state.genome_seq)
          st.download_button(
-            label="บันทมึกจีโนม (FASTA)",
+            label="บันทึกจีโนม (FASTA)",
             data=fasta_genome_content_io, # Pass the BytesIO object
             file_name=st.session_state.genome_id + ".fna",
             mime="text/plain",
@@ -507,4 +504,3 @@ if st.session_state.genome_seq:
         )
     else:
          st.button("บันทึกจีโนม (FASTA)", key='save_genome_button_disabled', disabled=True)
-""")
