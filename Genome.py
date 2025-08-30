@@ -110,33 +110,23 @@ def fetch_genome_and_gb(bacteria_name):
 
     return genome_id, genome_seq, gb_rec
 
-def get_overlapping_cds_annotations(gb_record, start, end):
-    results = []
-    if gb_record is None:
-        return results
-    for feat in gb_record.features:
-        if feat.type != "CDS":
-            continue
-        f_start = int(feat.location.start)
-        f_end = int(feat.location.end)
-        if not (end <= f_start or start >= f_end):  # overlap
-            q = feat.qualifiers
-            product = "; ".join(q.get("product", [])) if "product" in q else ""
-            gene = "; ".join(q.get("gene", [])) if "gene" in q else ""
-            pid = "; ".join(q.get("protein_id", [])) if "protein_id" in q else ""
-            note = "; ".join(q.get("note", [])) if "note" in q else ""
-            results.append({
-                "start": f_start, "end": f_end, "strand": feat.location.strand,
-                "gene": gene, "product": product, "protein_id": pid, "note": note
-            })
-    return results
-
 # ------------------------------
 # Streamlit UI Components
 # ------------------------------
 st.title("Genome Sequence Translation")
 
-species_name = st.text_input("Enter the bacteria species name (e.g., Escherichia coli):", "Escherichia coli")
+# Allow user to choose a predefined bacteria species or enter their own
+bacteria_list = [
+    "Escherichia coli", "Staphylococcus aureus", "Salmonella enterica", 
+    "Bacillus subtilis", "Pseudomonas aeruginosa", "Mycobacterium tuberculosis", 
+    "Vibrio cholerae", "Klebsiella pneumoniae", "Acinetobacter baumannii"
+]
+
+species_name = st.selectbox("Choose a bacteria species", bacteria_list)
+custom_species_name = st.text_input("Or enter your own bacteria name:", "")
+
+# Set the species name to custom input if provided
+species_name = custom_species_name if custom_species_name else species_name
 
 if st.button("Fetch Genome"):
     st.text("Fetching genome...")
