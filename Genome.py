@@ -270,6 +270,7 @@ with col_select:
     selected_bacteria = st.selectbox(
         'เลือกชื่อแบคทีเรียจากรายการ:',
         options=["— เลือก —"] + sample_bacteria,
+        index=0, # Set default index to "— เลือก —"
         key='bacteria_select'
     )
 
@@ -298,6 +299,7 @@ with col2:
     reset_button = st.button("ล้างผล", key='reset_button')
 
 if reset_button:
+    # Correctly reset session state variables
     st.session_state.genome_seq = None
     st.session_state.genbank_record = None
     st.session_state.genome_id = None
@@ -307,9 +309,9 @@ if reset_button:
     st.session_state.current_range_end = 3000
     st.session_state.start_codon_options = [("— ไม่เลือก —", None)]
     st.session_state.stop_codon_options = [("— ไม่เลือก —", None)]
-    # Also clear the inputs
-    st.session_state.bacteria_select = "— เลือก —"
-    st.session_state.custom_bacteria_input = ""
+    # Reset input widgets by clearing their keys
+    st.session_state.bacteria_select = "— เลือก —" # Reset dropdown to default option
+    st.session_state.custom_bacteria_input = "" # Clear text input
     st.rerun() # Rerun to clear the UI
 
 if fetch_button and species_name:
