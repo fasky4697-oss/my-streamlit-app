@@ -310,4 +310,4 @@ if fetch_button and species_name:
             st.session_state.genome_seq = genome_seq
             st.session_state.genbank_record = genbank_record
             st.session_state.current_range_start = 1
-            st.session_
+            
