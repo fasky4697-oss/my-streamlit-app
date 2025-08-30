@@ -1,4 +1,2 @@
-streamlit
-biopython
-biopython matplotlib ipywidgets adjustText
-upgrade biopython
+streamlit==1.32.0
+biopython==1.81
