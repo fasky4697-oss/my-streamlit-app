@@ -261,12 +261,34 @@ if 'stop_codon_options' not in st.session_state:
     st.session_state.stop_codon_options = [("— ไม่เลือก —", None)]
 
 
-# Input: Bacteria name
-species_name = st.text_input( # Changed to st.text_input
-    'กรอกหรือเลือกชื่อแบคทีเรีย:',
-    value="Escherichia coli", # Default value
-    key='species_name_input'
-)
+# Input: Bacteria name - Use both dropdown and text input
+sample_bacteria = ["Escherichia coli", "Bacillus subtilis", "Pseudomonas aeruginosa", "Staphylococcus aureus", "Mycobacterium tuberculosis"]
+
+col_select, col_input = st.columns([0.6, 0.4])
+
+with col_select:
+    selected_bacteria = st.selectbox(
+        'เลือกชื่อแบคทีเรียจากรายการ:',
+        options=["— เลือก —"] + sample_bacteria,
+        key='bacteria_select'
+    )
+
+with col_input:
+     # Add a small space for alignment with selectbox
+    st.markdown("<br>", unsafe_allow_html=True)
+    custom_bacteria = st.text_input(
+        'หรือกรอกชื่อเอง:',
+        key='custom_bacteria_input'
+    )
+
+# Determine which name to use
+if custom_bacteria:
+    species_name = custom_bacteria
+elif selected_bacteria and selected_bacteria != "— เลือก —":
+    species_name = selected_bacteria
+else:
+    species_name = "" # No selection yet
+
 
 col1, col2 = st.columns(2)
 
@@ -285,6 +307,9 @@ if reset_button:
     st.session_state.current_range_end = 3000
     st.session_state.start_codon_options = [("— ไม่เลือก —", None)]
     st.session_state.stop_codon_options = [("— ไม่เลือก —", None)]
+    # Also clear the inputs
+    st.session_state.bacteria_select = "— เลือก —"
+    st.session_state.custom_bacteria_input = ""
     st.rerun() # Rerun to clear the UI
 
 if fetch_button and species_name:
@@ -391,12 +416,12 @@ if st.session_state.genome_seq:
         # Add a small space or use markdown for alignment
         st.markdown("<br>", unsafe_allow_html=True) # Add some vertical space
         if st.session_state.last_protein_seq:
-            # Use save_protein_to_file to get the BytesIO object
-            fasta_content_io = save_protein_to_file(st.session_state.last_protein_header, st.session_state.last_protein_seq)
+            # Use io.BytesIO to create an in-memory binary stream for download
+            fasta_content_io = io.BytesIO(to_fasta(st.session_state.last_protein_header, st.session_state.last_protein_seq).encode('utf-8'))
             st.download_button(
                 label="บันทึกโปรตีน (FASTA)",
                 data=fasta_content_io, # Pass the BytesIO object
-                file_name=st.session_state.last_protein_header + ".faa",
+                file_name=f"{st.session_state.last_protein_header}.faa",
                 mime="text/plain",
                 key='save_protein_button'
             )
@@ -493,14 +518,14 @@ if st.session_state.genome_seq:
                  st.error("ตำแหน่งสิ้นสุดต้องมากกว่าตำแหน่งเริ่มต้น")
 
     if st.session_state.genome_seq and st.session_state.genome_id:
-         # Use save_genome_to_file to get the BytesIO object
-         fasta_genome_content_io = save_genome_to_file(st.session_state.genome_id, st.session_state.genome_seq)
+         # Use io.BytesIO to create an in-memory binary stream for download
+         fasta_genome_content_io = io.BytesIO(to_fasta(st.session_state.genome_id, st.session_state.genome_seq).encode('utf-8'))
          st.download_button(
             label="บันทึกจีโนม (FASTA)",
             data=fasta_genome_content_io, # Pass the BytesIO object
-            file_name=st.session_state.genome_id + ".fna",
+            file_name=f"{st.session_state.genome_id}.fna",
             mime="text/plain",
             key='save_genome_button'
         )
     else:
-         st.button("บันทึกจีโนม (FASTA)", key='save_genome_button_disabled', disabled=True)
+         st.button("บันทอม (FASTA)", key='save_genome_button_disabled', disabled=True) # Corrected label typo
